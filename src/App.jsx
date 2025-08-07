@@ -8,6 +8,7 @@ function App() {
   const [positionEvaluation, setPositionEvaluation] = useState(0);
   const [engineMove, setEngineMove] = useState(null);
   const [evaluationLog, setEvaluationLog] = useState([]);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // console.log(
   //   "enginemove : ",
@@ -30,6 +31,7 @@ function App() {
           onEngineMove={setEngineMove}
           onPositionEvaluation={setPositionEvaluation}
           onGameState={setGameState}
+          isGenerating={isGenerating}
         />
       </div>
       <div className="p-4 bg-blue-500 w-full max-w-[30%] text-white rounded">
@@ -37,6 +39,8 @@ function App() {
           engineMove={engineMove}
           positionEvaluation={positionEvaluation}
           chessGame={gameState}
+          isGenerating={isGenerating}
+          onGenerating={setIsGenerating}
         />
       </div>
       <div>

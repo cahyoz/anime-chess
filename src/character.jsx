@@ -4,8 +4,9 @@ export default function Character({
   engineMove,
   positionEvaluation,
   chessGame,
+  isGenerating,
+  onGenerating,
 }) {
-  const [isGenerating, setIsGenerating] = useState(false);
   const [commentary, setCommentary] = useState("");
   useEffect(() => {
     if (!chessGame) return;
@@ -44,7 +45,7 @@ export default function Character({
     return "";
   };
 
-  const CharacterMood = (positionEvaluation) => {
+  const CharacterMood = () => {
     const flipEval = -positionEvaluation;
     const normalizeEval = flipEval / 10;
 
@@ -147,12 +148,12 @@ Respond only in this JSON format:
   };
 
   const getCommentary = async (mood) => {
-    setIsGenerating(true);
-    setCommentary("The commentator is thinking...");
+    onGenerating(true);
+    setCommentary();
     const userAttackPiece = getAttackedPieces("w");
     const AIAttackPiece = getAttackedPieces("b");
 
-    const currentTurn = chessGame.turn() === "w" ? "Black" : "White";
+    // const currentTurn = chessGame.turn() === "w" ? "Black" : "White";
 
     const userMove = chessGame
       .history({ verbose: true })
@@ -180,12 +181,12 @@ Respond only in this JSON format:
 
     console.log(userAttackPieceNames);
     let prompt = `
-You are Hikarin, a cheerful, extroverted, happy-go-lucky anime girl currently playing a chess game.
+You are Hikarin, a cheerful, extroverted, happy-go-lucky girl currently playing a chess game.
 
 - The opponent (White) just played **${userMoveText}** using their ${userPiece} attacking your ${
       userAttackPieceNames.length > 0 ? userAttackPieceNames : "nothing"
     }.
-- It is now your turn (${currentTurn}).
+- It is now your turn black.
 - Your move is **${AImoveText}** using your ${AIpiece} to attack ${
       AIAttackPieceNames.length > 0 ? AIAttackPieceNames : "nothing"
     }.
@@ -285,19 +286,35 @@ Respond only in this JSON format:
         "The commentator seems to be having technical difficulties."
       );
     } finally {
-      setIsGenerating(false);
+      onGenerating(false);
+      console.log("finnaly", isGenerating);
     }
   };
 
   return (
     <div className="p-4 bg-white dark:bg-gray-700 rounded-2xl shadow-lg mt-8 text-center w-full">
+      <div className="w-full relative h-80 overflow-hidden">
+        {isGenerating ? (
+          <img
+            src="\hikarin\default.png"
+            className="absolute left-10 top-30 scale-150"
+            alt=""
+          />
+        ) : (
+          <img
+            src="\hikarin\yap1.png"
+            className="absolute left-10 top-30 scale-150"
+            alt=""
+          />
+        )}
+      </div>
       <h2 className="text-xl font-bold text-blue-600 dark:text-blue-300">
-        Hikarin's Commentary
+        Hikarin
       </h2>
       <div className="mt-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
         {isGenerating ? (
           <span className="text-gray-500 dark:text-gray-400 animate-pulse">
-            Loading...
+            hmm...
           </span>
         ) : (
           <p className="italic text-gray-700 dark:text-gray-300">

@@ -65,12 +65,10 @@ export default function ChessBoard({
           // setPossibleMate(latestEval.possibleMate);
           // setDepth(latestEval.depth);
           // setBestLine(latestEval.pv);
-          onGameState(chessGame);
           if (chessGame.turn() === "b") {
+            onGameState(chessGame);
             onEngineMove(bestMove);
-            setTimeout(() => {
-              moveAi(latestEval.bestMove);
-            }, 2000);
+            setTimeout(moveAi(latestEval.bestMove), 1000);
           }
         }
       }
@@ -78,16 +76,18 @@ export default function ChessBoard({
   }
 
   function moveAi(bestMove) {
-    const move = bestMove.split(" ")[0]; // e.g. "e2e4"
-    const from = move.slice(0, 2);
-    const to = move.slice(2, 4);
-    try {
-      // Call the function passed from the parent instead of the local state setter
-      chessGame.move({ from, to, promotion: "q" });
+    if (chessGame.turn() === "b") {
+      const move = bestMove.split(" ")[0]; // e.g. "e2e4"
+      const from = move.slice(0, 2);
+      const to = move.slice(2, 4);
+      try {
+        // Call the function passed from the parent instead of the local state setter
+        chessGame.move({ from, to, promotion: "q" });
 
-      setChessPosition(chessGame.fen());
-    } catch (err) {
-      console.warn("Failed to make engine move:", err);
+        setChessPosition(chessGame.fen());
+      } catch (err) {
+        console.warn("Failed to make engine move:", err);
+      }
     }
   }
 
