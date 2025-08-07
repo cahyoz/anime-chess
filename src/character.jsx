@@ -1,25 +1,23 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
-export default function character(
-  userMove,
+export default function Character({
   engineMove,
   positionEvaluation,
-  chessGame
-) {
+  chessGame,
+}) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [commentary, setCommentary] = useState("");
-
   useEffect(() => {
-    if ((userMove || engineMove) && chessGame) {
-      const lastMove = chessGame.history({ verbose: true }).slice(-1)[0];
-      if (lastMove) {
-        getCommentary(lastMove);
-      }
-    }
-  }, [userMove, engineMove, chessGame]);
+    if (!chessGame) return;
+    // keep this for debug
+    // logValues();
+    CharacterMood(positionEvaluation);
+  }, [engineMove]);
 
-  const getPieceName = (move) => {
-    if (!move) return "";
+  const getPieceName = (pieceObject) => {
+    if (!pieceObject) {
+      return "";
+    }
     const nameMap = {
       p: "Pawn",
       n: "Knight",
@@ -28,32 +26,226 @@ export default function character(
       q: "Queen",
       k: "King",
     };
-    // FIX: The verbose move object from chess.js history has a 'piece' property, not 'type'.
-    return `${move.color === "w" ? "White" : "Black"} ${
-      nameMap[move.piece.toLowerCase()]
-    }`;
+
+    let pieceType = null;
+
+    if (pieceObject.type) {
+      pieceType = pieceObject.type;
+    } else if (pieceObject.piece) {
+      pieceType = pieceObject.piece;
+    }
+
+    if (pieceType) {
+      return `${pieceObject.color === "w" ? "White" : "Black"} ${
+        nameMap[pieceType.toLowerCase()]
+      }`;
+    }
+
+    return "";
   };
 
-  const getCommentary = async (move) => {
+  const CharacterMood = (positionEvaluation) => {
+    const flipEval = -positionEvaluation;
+    const normalizeEval = flipEval / 10;
+
+    console.log("normalize eval : ", normalizeEval);
+    let mood = "neutral";
+
+    if (normalizeEval >= 8) mood = "smug";
+    else if (normalizeEval >= 5) mood = "confident";
+    else if (normalizeEval >= 2) mood = "pleased";
+    else if (normalizeEval >= 0.5) mood = "calm";
+    else if (normalizeEval > -0.5) mood = "neutral";
+    else if (normalizeEval > -2) mood = "uneasy";
+    else if (normalizeEval > -4) mood = "nervous";
+    else if (normalizeEval > -6) mood = "panicking";
+    else mood = "desperate";
+
+    // logFakePrompt(mood);
+    getCommentary(mood);
+    console.log("current mood", mood);
+  };
+
+  const getAttackedPieces = (attackingColor) => {
+    const ranks = ["1", "2", "3", "4", "5", "6", "7", "8"];
+    const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
+    const attackedPieces = [];
+
+    const defendingColor = attackingColor === "w" ? "b" : "w";
+
+    for (const file of files) {
+      for (const rank of ranks) {
+        const square = file + rank;
+
+        if (chessGame.isAttacked(square, attackingColor)) {
+          const pieceOnSquare = chessGame.get(square);
+
+          if (pieceOnSquare && pieceOnSquare.color === defendingColor) {
+            attackedPieces.push(pieceOnSquare);
+          }
+        }
+      }
+    }
+
+    return attackedPieces;
+  };
+
+  const logFakePrompt = (mood) => {
+    const currentTurn = chessGame.turn() === "w" ? "Black" : "White";
+    const userAttackPiece = getAttackedPieces("w");
+    const AIAttackPiece = getAttackedPieces("b");
+
+    const userAttackPieceNames = userAttackPiece
+      .map((piece) => {
+        return getPieceName(piece);
+      })
+      .join(", ");
+
+    const AIAttackPieceNames = AIAttackPiece.map((piece) => {
+      return getPieceName(piece);
+    }).join(", ");
+
+    console.log(userAttackPieceNames);
+
+    const userMove = chessGame
+      .history({ verbose: true })
+      .filter((m) => m.color === "w")
+      .at(-1);
+
+    const AImove = chessGame
+      .history({ verbose: true })
+      .filter((m) => m.color === "b")
+      .at(-1);
+
+    console.log("usermove : ", userMove, typeof userMove);
+
+    const userMoveText = userMove?.lan ?? "an unknown move";
+    const AImoveText = AImove?.lan ?? "an unknown move";
+    const userPiece = getPieceName(userMove);
+    const AIpiece = getPieceName(AImove);
+    const prompt = `
+You are Hikarin, a cheerful, extroverted, happy-go-lucky anime girl currently playing a chess game.
+
+- The opponent (White) just played **${userMoveText}** using their ${userPiece} attacking your ${
+      userAttackPieceNames.length > 0 ? userAttackPieceNames : "nothing"
+    }.
+- It is now your turn (${currentTurn}).
+- Your move is **${AImoveText}** using your ${AIpiece} to attack ${
+      AIAttackPieceNames.length > 0 ? AIAttackPieceNames : "nothing"
+    }.
+- Due to the position evaluation on the board your mood is ${mood}.
+
+respond as Hikarin while staying in character!
+
+Respond only in this JSON format:
+
+{
+  "response": "<your commentary here>"
+}
+`;
+    console.log("prompt: ", prompt);
+  };
+
+  const getCommentary = async (mood) => {
     setIsGenerating(true);
     setCommentary("The commentator is thinking...");
+    const userAttackPiece = getAttackedPieces("w");
+    const AIAttackPiece = getAttackedPieces("b");
 
     const currentTurn = chessGame.turn() === "w" ? "Black" : "White";
-    const lastMove = chessGame.history({ verbose: true }).slice(-1)[0];
-    const pieceName = getPieceName(lastMove);
 
-    let prompt = `“you are hikarin A cherful extroverted, and happy go lucky anime girl, and is currently in a chess game. Current opponent move is ${move} the piece moved was ${pieceName} The current board state in FEN is: ${chessGame.fen()} And your opponent evaluation is ${positionEvaluation}. Generate an appropriate in character response in this json format only
+    const userMove = chessGame
+      .history({ verbose: true })
+      .filter((m) => m.color === "w")
+      .at(-1);
+    const AImove = chessGame
+      .history({ verbose: true })
+      .filter((m) => m.color === "b")
+      .at(-1);
+
+    const userMoveText = userMove?.san ?? "an unknown move";
+    const AImoveText = AImove?.san ?? "an unknown move";
+    const userPiece = getPieceName(userMove);
+    const AIpiece = getPieceName(AImove);
+
+    const userAttackPieceNames = userAttackPiece
+      .map((piece) => {
+        return getPieceName(piece);
+      })
+      .join(", ");
+
+    const AIAttackPieceNames = AIAttackPiece.map((piece) => {
+      return getPieceName(piece);
+    }).join(", ");
+
+    console.log(userAttackPieceNames);
+    let prompt = `
+You are Hikarin, a cheerful, extroverted, happy-go-lucky anime girl currently playing a chess game.
+
+- The opponent (White) just played **${userMoveText}** using their ${userPiece} attacking your ${
+      userAttackPieceNames.length > 0 ? userAttackPieceNames : "nothing"
+    }.
+- It is now your turn (${currentTurn}).
+- Your move is **${AImoveText}** using your ${AIpiece} to attack ${
+      AIAttackPieceNames.length > 0 ? AIAttackPieceNames : "nothing"
+    }.
+- Due to the position evaluation on the board your mood is ${mood}.
+
+respond as Hikarin while staying in character!
+
+Respond only in this JSON format:
+
 {
-response :
-}”`;
+  "response": "<your commentary here>"
+}
+`;
+    console.log("prompt: ", prompt);
 
     if (chessGame.isCheckmate()) {
-      prompt = `You are an expert and witty chess commentator. The game has ended in checkmate! ${currentTurn} wins. The final move was ${move}. The final board state is ${chessGame.fen()}. Provide a final, conclusive, and perhaps dramatic comment on the victory.`;
+      prompt = `
+You are Hikarin, a cheerful, extroverted, happy-go-lucky anime girl currently playing a chess game and is already checkmate.
+
+- The opponent (White) just played **${userMoveText}** using their ${userPiece} attacking your ${
+        userAttackPieceNames.length > 0 ? userAttackPieceNames : "nothing"
+      }.
+- It is now your turn (${currentTurn}).
+- Your move is **${AImoveText}** using your ${AIpiece} to attack ${
+        AIAttackPieceNames.length > 0 ? AIAttackPieceNames : "nothing"
+      }.
+- Due to the position evaluation on the board your mood is ${mood}.
+
+respond as Hikarin while staying in character!
+
+Respond only in this JSON format:
+
+{
+  "response": "<your commentary here>"
+}
+`;
     } else if (chessGame.isCheck()) {
-      prompt = `You are an expert and witty chess commentator. The move ${move} has put the opponent in check! The piece moved was the ${pieceName}. The current board state is ${chessGame.fen()}. Provide an exciting comment about this check.`;
-    } else if (chessGame.isDraw()) {
-      prompt = `You are an expert and witty chess commentator. The game has ended in a draw. The final move was ${move}. The final board state is ${chessGame.fen()}. Provide a comment on this drawn game.`;
+      prompt = `
+You are Hikarin, a cheerful, extroverted, happy-go-lucky anime girl currently playing a chess game and is currently check.
+
+- The opponent (White) just played **${userMoveText}** using their ${userPiece} attacking your ${
+        userAttackPieceNames.length > 0 ? userAttackPieceNames : "nothing"
+      }.
+- It is now your turn (${currentTurn}).
+- Your move is **${AImoveText}** using your ${AIpiece} to attack ${
+        AIAttackPieceNames.length > 0 ? AIAttackPieceNames : "nothing"
+      }.
+- Due to the position evaluation on the board your mood is ${mood}.
+
+respond as Hikarin while staying in character!
+
+Respond only in this JSON format:
+
+{
+  "response": "<your commentary here>"
+}
+`;
     }
+
+    console.log(prompt);
 
     try {
       let chatHistory = [];
@@ -81,7 +273,9 @@ response :
         result.candidates[0].content.parts.length > 0
       ) {
         const text = result.candidates[0].content.parts[0].text;
-        setCommentary(text);
+        const cleaned = text.replace(/```json|```/g, "").trim();
+        const parsed = JSON.parse(cleaned);
+        setCommentary(parsed.response);
       } else {
         setCommentary("The commentator is speechless! (No response from API).");
       }

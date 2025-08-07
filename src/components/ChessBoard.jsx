@@ -3,21 +3,25 @@ import Engine from "../../public/stockfish/engine";
 import { Chess } from "chess.js";
 import { Chessboard } from "react-chessboard";
 
-export default function ChessBoard() {
+// Add the props to the function signature
+export default function ChessBoard({
+  onEngineMove,
+  onPositionEvaluation,
+  onGameState,
+}) {
   const engine = useMemo(() => new Engine(), []);
-  const chess = new Chess();
-
-  const chessGameRef = useRef(chess);
+  const chessGameRef = useRef(new Chess());
   const chessGame = chessGameRef.current;
 
   const [chessPosition, setChessPosition] = useState(chessGame.fen());
 
-  const [depth, setDepth] = useState(10);
+  const [depth, setDepth] = useState(2);
   const [bestLine, setBestLine] = useState("");
   const [possibleMate, setPossibleMate] = useState("");
-  const [positionEvaluation, setPositionEvaluation] = useState(0);
-  const [engineMove, setEngineMove] = useState("");
-  const [userMove, setUserMove] = useState("");
+  // Remove the state for engineMove, userMove, and positionEvaluation
+  // const [positionEvaluation, setPositionEvaluation] = useState(0);
+  // const [engineMove, setEngineMove] = useState("");
+  // const [userMove, setUserMove] = useState("");
 
   useEffect(() => {
     if (!chessGame.isGameOver() || chessGame.isDraw()) {
@@ -57,31 +61,33 @@ export default function ChessBoard() {
 
         // When we receive the final signal
         if (uciMessage.startsWith("bestmove")) {
-          setPositionEvaluation(latestEval.rawEval);
+          onPositionEvaluation(latestEval.rawEval);
           // setPossibleMate(latestEval.possibleMate);
           // setDepth(latestEval.depth);
           // setBestLine(latestEval.pv);
-
-          console.log("Final Evaluation:", latestEval);
-
-          moveAi(latestEval.bestMove);
+          onGameState(chessGame);
+          if (chessGame.turn() === "b") {
+            onEngineMove(bestMove);
+            setTimeout(() => {
+              moveAi(latestEval.bestMove);
+            }, 2000);
+          }
         }
       }
     );
   }
 
   function moveAi(bestMove) {
-    if (chessGame.turn() === "b") {
-      const move = bestMove.split(" ")[0]; // e.g. "e2e4"
-      const from = move.slice(0, 2);
-      const to = move.slice(2, 4);
-      try {
-        setEngineMove(bestMove);
-        chessGame.move({ from, to, promotion: "q" });
-        setChessPosition(chessGame.fen());
-      } catch (err) {
-        console.warn("Failed to make engine move:", err);
-      }
+    const move = bestMove.split(" ")[0]; // e.g. "e2e4"
+    const from = move.slice(0, 2);
+    const to = move.slice(2, 4);
+    try {
+      // Call the function passed from the parent instead of the local state setter
+      chessGame.move({ from, to, promotion: "q" });
+
+      setChessPosition(chessGame.fen());
+    } catch (err) {
+      console.warn("Failed to make engine move:", err);
     }
   }
 
@@ -91,14 +97,13 @@ export default function ChessBoard() {
     }
 
     try {
-      const move = chessGame.move({
+      chessGame.move({
         from: sourceSquare,
         to: targetSquare,
         promotion: "q", // always promote to a queen for example simplicity
       });
       setPossibleMate("");
 
-      setUserMove(move);
       // update the game state
       setChessPosition(chessGame.fen());
 
@@ -118,10 +123,12 @@ export default function ChessBoard() {
     }
   }
 
-  console.log("enginemove", engineMove);
-  console.log("usermove", userMove);
+  // Remove the console.logs for the removed local state
+  // console.log("enginemove", engineMove);
+  // console.log("usermove", userMove);
 
   const chessboardOptions = {
+    animationDurationInMs: 500,
     position: chessPosition,
     onPieceDrop,
   };
