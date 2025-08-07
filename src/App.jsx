@@ -43,13 +43,13 @@ function App() {
           onGenerating={setIsGenerating}
         />
       </div>
-      <div>
+      {/* <div>
         <ul>
           {evaluationLog.map((element, index) => (
             <li key={index}>{element}</li>
           ))}
         </ul>
-      </div>
+      </div> */}
     </div>
   );
 }

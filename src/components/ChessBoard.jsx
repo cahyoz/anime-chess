@@ -15,7 +15,7 @@ export default function ChessBoard({
 
   const [chessPosition, setChessPosition] = useState(chessGame.fen());
 
-  const [depth, setDepth] = useState(2);
+  const [depth, setDepth] = useState(3);
   const [bestLine, setBestLine] = useState("");
   const [possibleMate, setPossibleMate] = useState("");
   // Remove the state for engineMove, userMove, and positionEvaluation

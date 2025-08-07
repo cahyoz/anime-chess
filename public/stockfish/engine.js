@@ -28,7 +28,7 @@ export default class Engine {
 
   init() {
     this.stockfish.postMessage("uci");
-    this.stockfish.postMessage("setoption name Skill Level value 5");
+    this.stockfish.postMessage("setoption name Skill Level value 7");
     // this.stockfish.postMessage(`setoption name UCI_Elo value 100`);
     this.stockfish.postMessage("isready");
     this.onMessage(({ uciMessage }) => {
