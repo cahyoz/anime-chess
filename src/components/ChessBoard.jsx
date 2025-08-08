@@ -8,12 +8,12 @@ export default function ChessBoard({
   onEngineMove,
   onPositionEvaluation,
   onGameState,
+  isGenerating,
+  chessPosition,
+  setChessPosition,
+  chessGame,
 }) {
   const engine = useMemo(() => new Engine(), []);
-  const chessGameRef = useRef(new Chess());
-  const chessGame = chessGameRef.current;
-
-  const [chessPosition, setChessPosition] = useState(chessGame.fen());
 
   const [depth, setDepth] = useState(3);
   const [bestLine, setBestLine] = useState("");
@@ -24,55 +24,65 @@ export default function ChessBoard({
   // const [userMove, setUserMove] = useState("");
 
   useEffect(() => {
-    if (!chessGame.isGameOver() || chessGame.isDraw()) {
-      findBestMove();
-    }
+    const runFindBestMove = async () => {
+      if (!chessGame.isGameOver() || chessGame.isDraw()) {
+        if (chessGame.turn() === "b") {
+          const bestMove = await findBestMove();
+          moveAi(bestMove);
+        }
+      }
+    };
+    runFindBestMove();
   }, [chessPosition]);
 
   function findBestMove() {
-    engine.evaluatePosition(chessGame.fen(), depth);
-    let latestEval = {
-      rawEval: null,
-      depth: null,
-      possibleMate: null,
-      pv: null,
-      bestMove: null,
-    };
+    return new Promise((resolve) => {
+      engine.evaluatePosition(chessGame.fen(), depth);
+      let latestEval = {
+        rawEval: null,
+        depth: null,
+        possibleMate: null,
+        pv: null,
+        bestMove: null,
+      };
 
-    engine.onMessage(
-      ({
-        uciMessage,
-        positionEvaluation,
-        possibleMate,
-        pv,
-        depth,
-        bestMove,
-      }) => {
-        // Update local temp values as Stockfish keeps calculating
-        if (positionEvaluation) {
-          latestEval.rawEval =
-            ((chessGame.turn() === "w" ? 1 : -1) * Number(positionEvaluation)) /
-            100;
-        }
-        if (possibleMate) latestEval.possibleMate = possibleMate;
-        if (depth) latestEval.depth = depth;
-        if (pv) latestEval.pv = pv;
-        if (bestMove) latestEval.bestMove = bestMove;
+      engine.onMessage(
+        ({
+          uciMessage,
+          positionEvaluation,
+          possibleMate,
+          pv,
+          depth,
+          bestMove,
+        }) => {
+          // Update local temp values as Stockfish keeps calculating
+          if (positionEvaluation) {
+            latestEval.rawEval =
+              ((chessGame.turn() === "w" ? 1 : -1) *
+                Number(positionEvaluation)) /
+              100;
+          }
+          if (possibleMate) latestEval.possibleMate = possibleMate;
+          if (depth) latestEval.depth = depth;
+          if (pv) latestEval.pv = pv;
+          if (bestMove) latestEval.bestMove = bestMove;
 
-        // When we receive the final signal
-        if (uciMessage.startsWith("bestmove")) {
-          onPositionEvaluation(latestEval.rawEval);
-          // setPossibleMate(latestEval.possibleMate);
-          // setDepth(latestEval.depth);
-          // setBestLine(latestEval.pv);
-          if (chessGame.turn() === "b") {
+          // When we receive the final signal
+          if (uciMessage.startsWith("bestmove")) {
+            onPositionEvaluation(latestEval.rawEval);
             onGameState(chessGame);
             onEngineMove(bestMove);
-            setTimeout(moveAi(latestEval.bestMove), 1000);
+            resolve(latestEval.bestMove);
+            // setPossibleMate(latestEval.possibleMate);
+            // setDepth(latestEval.depth);
+            // setBestLine(latestEval.pv);
+            // if (chessGame.turn() === "b") {
+            //   setTimeout(moveAi(latestEval.bestMove), 1000);
+            // }
           }
         }
-      }
-    );
+      );
+    });
   }
 
   function moveAi(bestMove) {
@@ -83,8 +93,6 @@ export default function ChessBoard({
       try {
         // Call the function passed from the parent instead of the local state setter
         chessGame.move({ from, to, promotion: "q" });
-
-        setChessPosition(chessGame.fen());
       } catch (err) {
         console.warn("Failed to make engine move:", err);
       }

@@ -6,13 +6,17 @@ export default function Character({
   chessGame,
   isGenerating,
   onGenerating,
+  setChessPosition,
 }) {
   const [commentary, setCommentary] = useState("");
   useEffect(() => {
     if (!chessGame) return;
     // keep this for debug
     // logValues();
-    CharacterMood(positionEvaluation);
+    const runMood = async () => {
+      CharacterMood(positionEvaluation, getCommentary);
+    };
+    runMood();
   }, [engineMove]);
 
   const getPieceName = (pieceObject) => {
@@ -43,28 +47,6 @@ export default function Character({
     }
 
     return "";
-  };
-
-  const CharacterMood = () => {
-    const flipEval = -positionEvaluation;
-    const normalizeEval = flipEval / 10;
-
-    console.log("normalize eval : ", normalizeEval);
-    let mood = "neutral";
-
-    if (normalizeEval >= 8) mood = "smug";
-    else if (normalizeEval >= 5) mood = "confident";
-    else if (normalizeEval >= 2) mood = "pleased";
-    else if (normalizeEval >= 0.5) mood = "calm";
-    else if (normalizeEval > -0.5) mood = "neutral";
-    else if (normalizeEval > -2) mood = "uneasy";
-    else if (normalizeEval > -4) mood = "nervous";
-    else if (normalizeEval > -6) mood = "panicking";
-    else mood = "desperate";
-
-    // logFakePrompt(mood);
-    getCommentary(mood);
-    console.log("current mood", mood);
   };
 
   const getAttackedPieces = (attackingColor) => {
@@ -153,7 +135,7 @@ Respond only in this JSON format:
     const userAttackPiece = getAttackedPieces("w");
     const AIAttackPiece = getAttackedPieces("b");
 
-    // const currentTurn = chessGame.turn() === "w" ? "Black" : "White";
+    const currentTurn = chessGame.turn() === "w" ? "Black" : "White";
 
     const userMove = chessGame
       .history({ verbose: true })
@@ -252,7 +234,7 @@ Respond only in this JSON format:
       let chatHistory = [];
       chatHistory.push({ role: "user", parts: [{ text: prompt }] });
       const payload = { contents: chatHistory };
-      const apiKey = "AIzaSyBmfLCUDan0z_kumgA84V_gAuVJTA0ilWQ"; // API key will be injected by the environment
+      const apiKey = sessionStorage.getItem("key"); // API key will be injected by the environment
       const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
       const response = await fetch(apiUrl, {
@@ -287,6 +269,7 @@ Respond only in this JSON format:
       );
     } finally {
       onGenerating(false);
+      setChessPosition(chessGame.fen());
       console.log("finnaly", isGenerating);
     }
   };
@@ -325,3 +308,25 @@ Respond only in this JSON format:
     </div>
   );
 }
+
+export const CharacterMood = async (positionEvaluation, getCommentary) => {
+  const flipEval = -positionEvaluation;
+  const normalizeEval = flipEval / 10;
+
+  console.log("normalize eval : ", normalizeEval);
+  let mood = "neutral";
+
+  if (normalizeEval >= 8) mood = "smug";
+  else if (normalizeEval >= 5) mood = "confident";
+  else if (normalizeEval >= 2) mood = "pleased";
+  else if (normalizeEval >= 0.5) mood = "calm";
+  else if (normalizeEval > -0.5) mood = "neutral";
+  else if (normalizeEval > -2) mood = "uneasy";
+  else if (normalizeEval > -4) mood = "nervous";
+  else if (normalizeEval > -6) mood = "panicking";
+  else mood = "desperate";
+
+  // logFakePrompt(mood);
+  await getCommentary(mood);
+  console.log("current mood", mood);
+};
